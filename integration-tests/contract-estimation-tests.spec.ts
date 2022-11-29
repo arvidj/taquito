@@ -7,8 +7,10 @@ import { managerCode } from "./data/manager_code";
 
 CONFIGS().forEach(({ lib, setup, knownBaker, createAddress, protocol, rpc }) => {
   const Tezos = lib;
-  const jakartanet = (protocol === Protocols.PtJakart2) ? test : test.skip;
-  const kathmandunet = (protocol === Protocols.PtKathman) ? test : test.skip;
+  const jakartanet = (protocol === Protocols.PtJakart2)
+    && rpc === 'https://jakartanet-archive.ecadinfra.com' ? test : test.skip;
+  const kathmandunet = (protocol === Protocols.PtKathman)
+    && rpc === 'http://ecad-kathmandunet-archive.i.tez.ie:8732' ? test : test.skip;
 
   describe(`Test estimate scenarios using: ${rpc}`, () => {
     let LowAmountTez: TezosToolkit;
