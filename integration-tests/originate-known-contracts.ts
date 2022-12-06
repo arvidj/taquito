@@ -16,19 +16,34 @@ CONFIGS().forEach(({ lib, setup, protocol }) => {
   let keyPkh: string = "";
   let keyInitialBalance: BigNumber = new BigNumber(0);
 
-  (async () => {
-    await setup(true);
-    fs.writeFile(`known-contracts-${protocol.substring(0,9)}.ts`, '', (err: any) => {
+  let protocolShort = protocol.substring(0, 9);
+  let outputFile = `known-contracts-${protocolShort}.ts`;
+  let writeOutput = (line: string): void => {
+    fs.writeFile(outputFile, line + '\n', (err: any) => {
       if (err) {
         console.error(err);
       }
     });
+  };
+  let appendOutput = (line: string): void => {
+    fs.appendFile(outputFile, line + '\n', (err: any) => {
+      if (err) {
+        console.error(err);
+      }
+    });
+  };
+
+  (async () => {
+    await setup(true);
+
+    writeOutput("import { KnownContracts } from './known-contracts';")
+    appendOutput("export const knownContracts" + protocolShort + ": KnownContracts = {");
 
     keyPkh = await tezos.signer.publicKeyHash();
     keyInitialBalance = await tezos.tz.getBalance(keyPkh);
 
     // KnownContract
-    await originateKnownContract('Contract', tezos, {
+    await originateKnownContract('contract', tezos, {
       balance: '0',
       code: knownContract,
       init: {
@@ -50,7 +65,7 @@ CONFIGS().forEach(({ lib, setup, protocol }) => {
     const allowancesBigMap = new MichelsonMap();
     const ledgerBigMap = new MichelsonMap();
     ledgerBigMap.set('tz1btkXVkVFWLgXa66sbRJa8eeUSwvQFX4kP', { allowances: allowancesBigMap, balance: '100' });
-    await originateKnownContract('BigMapContract', tezos, {
+    await originateKnownContract('bigMapContract', tezos, {
       code: knownBigMapContract,
       storage: {
         ledger: ledgerBigMap,
@@ -108,7 +123,7 @@ CONFIGS().forEach(({ lib, setup, protocol }) => {
       total_supply: '20000',
     });
 
-    await originateKnownContract('Tzip12BigMapOffChainContract', tezos, {
+    await originateKnownContract('tzip12BigMapOffChainContract', tezos, {
       code: fa2ForTokenMetadataView,
       storage: {
         administrator: 'tz1bwsEWCwSEXdRvnJxvegQZKeX5dj6oKEys',
@@ -122,30 +137,28 @@ CONFIGS().forEach(({ lib, setup, protocol }) => {
     });
 
     // KnownSaplingContract
-    await originateKnownContract('SaplingContract', tezos, {
+    await originateKnownContract('saplingContract', tezos, {
       code: singleSaplingStateContractJProtocol(),
       init: '{}'
     });
 
     // knownOnChainViewContract
-    await originateKnownContract('OnChainViewContractAddress', tezos, {
+    await originateKnownContract('onChainViewContractAddress', tezos, {
       code: codeViewsTopLevel,
       storage: 2
     });
 
     // originate tx rollup
     try {
-    const op = await tezos.contract.txRollupOriginate({});
-    await op.confirmation();
-    console.log(`txRollupAddress:  ${op.originatedRollup}`);
-      fs.appendFile(`known-contracts-${protocol.substring(0,9)}.ts`, `export const txRollupAddress${protocol.substring(0,9)} = "${op.originatedRollup}";\n`, (err: any) => {
-        if (err) {
-          console.error(err);
-        }
-      });
+      const op = await tezos.contract.txRollupOriginate({});
+      await op.confirmation();
+      console.log(`txRollupAddress:  ${op.originatedRollup}`);
+      appendOutput(`  txRollupAddress: "${op.originatedRollup}",`);
     } catch (e: any) {
       console.error(`Failed to originate tx rollup | Error: ${e.stack}`);
     }
+
+    appendOutput('};');
 
     console.log(`
 ################################################################################
@@ -162,13 +175,9 @@ Total XTZ Spent : ${keyInitialBalance.minus(await tezos.tz.getBalance(keyPkh)).d
     try {
       const operation = await tezos.contract.originate(contractOriginateParams);
       const contract = await operation.contract();
-      console.log(`known${contractName} address:  ${contract.address}`);
-      console.log(`::set-output name=known${contractName}Address::${contract.address}\n`);
-      fs.appendFile(`known-contracts-${protocol.substring(0,9)}.ts`, `export const known${contractName}${protocol.substring(0,9)} = "${contract.address}";\n`, (err: any) => {
-        if (err) {
-          console.error(err);
-        }
-      });
+      console.log(`known ${contractName} address:  ${contract.address}`);
+      console.log(`::set-output ${contractName}::${contract.address}\n`);
+      appendOutput(`  ${contractName}: "${contract.address}",`);
     } catch (e: any) {
       console.error(`Failed to deploy ${contractName} known contract | Error: ${e.stack}`);
 
