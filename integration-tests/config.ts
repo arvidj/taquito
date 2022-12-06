@@ -4,6 +4,7 @@ import { HttpBackend } from '@taquito/http-utils';
 import { b58cencode, Prefix, prefix } from '@taquito/utils';
 import { importKey, InMemorySigner } from '@taquito/signer';
 import { RpcClient, RpcClientCache } from '@taquito/rpc';
+import { KnownContracts } from './known-contracts';
 import { knownContractsProtoALph } from './known-contracts-ProtoALph';
 import { knownContractsPtKathman } from './known-contracts-PtKathman';
 import { knownContractsPtLimaPtL } from './known-contracts-PtLimaPtL';
@@ -75,120 +76,86 @@ const defaultSecretKey: SecretKeyConfig = {
   password: process.env['PASSWORD_SECRET_KEY'] || undefined,
 }
 
-const kathmandunetEphemeral = {
-  rpc: process.env['TEZOS_RPC_KATHMANDUNET'] || 'http://ecad-kathmandunet-archive.i.tez.ie:8732',
-  pollingIntervalMilliseconds: process.env['POLLING_INTERVAL_MILLISECONDS'] || undefined,
-  rpcCacheMilliseconds: process.env['RPC_CACHE_MILLISECONDS'] || '1000',
-  knownBaker: process.env['TEZOS_BAKER'] || 'tz1cjyja1TU6fiyiFav3mFAdnDsCReJ12hPD',
-  knownContract: process.env['TEZOS_KATHMANDUNET_CONTRACT_ADDRESS'] || knownContractsPtKathman.contract,
-  knownBigMapContract: process.env['TEZOS_KATHMANDUNET_BIGMAPCONTRACT_ADDRESS'] || knownContractsPtKathman.bigMapContract,
-  knownTzip1216Contract: process.env['TEZOS_KATHMANDUNET_TZIP1216CONTRACT_ADDRESS'] || knownContractsPtKathman.tzip12BigMapOffChainContract,
-  knownSaplingContract: process.env['TEZOS_KATHMANDUNET_SAPLINGCONTRACT_ADDRESS'] || knownContractsPtKathman.saplingContract,
-  txRollupWithdrawContract: process.env['TEZOS_KATHMANDUNET_TX_ROLLUP_WITHDRAW_CONTRACT'] || '',
-  txRollupDepositContract: process.env['TEZOS_KATHMANDUNET_TX_ROLLUP_DEPOSIT_CONTRACT'] || '',
-  knownViewContract: process.env['TEZOS_KATHMANDUNET_ON_CHAIN_VIEW_CONTRACT'] || knownContractsPtKathman.onChainViewContractAddress,
-  txRollupAddress: process.env['TEZOS_KATHMANDUNET_TXROLLUP_ADDRESS'] || knownContractsPtKathman.txRollupAddress,
-  protocol: Protocols.PtKathman,
-  signerConfig: {
-    type: SignerType.EPHEMERAL_KEY as SignerType.EPHEMERAL_KEY,
-    keyUrl: 'http://key-gen-1.i.tez.ie:3000/kathmandunet',
-    requestHeaders: { Authorization: 'Bearer taquito-example' },
+const defaultEphemeralConfig = (keyUrl: string): EphemeralConfig => ({
+  type: SignerType.EPHEMERAL_KEY as SignerType.EPHEMERAL_KEY,
+  keyUrl: keyUrl,
+  requestHeaders: { Authorization: 'Bearer taquito-example' },
+});
+
+
+// Named parameters for defaultConfig below
+interface DefaultConfiguration {
+  networkName: string;
+  protocol: Protocols;
+  defaultRpc: string;
+  knownContracts: KnownContracts;
+  signerConfig: EphemeralConfig | SecretKeyConfig;
+}
+
+// Creates a default Config for the given networkName, running
+// protocol, available on defaultRpc, a set of knownContracts and
+// signerConfig.
+const defaultConfig = ({
+  networkName,
+  protocol,
+  defaultRpc,
+  knownContracts,
+  signerConfig
+}: DefaultConfiguration): Config => {
+  return {
+    rpc: process.env[`TEZOS_RPC_${networkName}`] || defaultRpc,
+    pollingIntervalMilliseconds: process.env[`POLLING_INTERVAL_MILLISECONDS`] || undefined,
+    rpcCacheMilliseconds: process.env[`RPC_CACHE_MILLISECONDS`] || '1000',
+    knownBaker: process.env[`TEZOS_BAKER`] || 'tz1cjyja1TU6fiyiFav3mFAdnDsCReJ12hPD',
+    knownContract: process.env[`TEZOS_${networkName}_CONTRACT_ADDRESS`] || knownContracts.contract,
+    knownBigMapContract: process.env[`TEZOS_${networkName}_BIGMAPCONTRACT_ADDRESS`] || knownContracts.bigMapContract,
+    knownTzip1216Contract: process.env[`TEZOS_${networkName}_TZIP1216CONTRACT_ADDRESS`] || knownContracts.tzip12BigMapOffChainContract,
+    knownSaplingContract: process.env[`TEZOS_${networkName}_SAPLINGCONTRACT_ADDRESS`] || knownContracts.saplingContract,
+    txRollupWithdrawContract: process.env[`TEZOS_${networkName}_TX_ROLLUP_WITHDRAW_CONTRACT`] || '',
+    txRollupDepositContract: process.env[`TEZOS_${networkName}_TX_ROLLUP_DEPOSIT_CONTRACT`] || '',
+    knownViewContract: process.env[`TEZOS_${networkName}_ON_CHAIN_VIEW_CONTRACT`] || knownContracts.onChainViewContractAddress,
+    txRollupAddress: process.env[`TEZOS_${networkName}_TXROLLUP_ADDRESS`] || knownContracts.txRollupAddress,
+    protocol: protocol,
+    signerConfig: signerConfig,
   }
-};
+}
 
-const limanetEphemeral = {
-  rpc: process.env['TEZOS_RPC_LIMANET'] || 'http://ecad-limanet-full:8732',
-  pollingIntervalMilliseconds: process.env['POLLING_INTERVAL_MILLISECONDS'] || undefined,
-  rpcCacheMilliseconds: process.env['RPC_CACHE_MILLISECONDS'] || '1000',
-  knownBaker: process.env['TEZOS_BAKER'] || 'tz1cjyja1TU6fiyiFav3mFAdnDsCReJ12hPD',
-  knownContract: process.env['TEZOS_LIMANET_CONTRACT_ADDRESS'] || knownContractsPtLimaPtL.contract,
-  knownBigMapContract: process.env['TEZOS_LIMANET_BIGMAPCONTRACT_ADDRESS'] || knownContractsPtLimaPtL.bigMapContract,
-  knownTzip1216Contract: process.env['TEZOS_LIMANET_TZIP1216CONTRACT_ADDRESS'] || knownContractsPtLimaPtL.tzip12BigMapOffChainContract,
-  knownSaplingContract: process.env['TEZOS_LIMANET_SAPLINGCONTRACT_ADDRESS'] || knownContractsPtLimaPtL.saplingContract,
-  txRollupWithdrawContract: process.env['TEZOS_LIMANET_TX_ROLLUP_WITHDRAW_CONTRACT'] || '',
-  txRollupDepositContract: process.env['TEZOS_LIMANET_TX_ROLLUP_DEPOSIT_CONTRACT'] || '',
-  knownViewContract: process.env['TEZOS_LIMANET_ON_CHAIN_VIEW_CONTRACT'] || knownContractsPtLimaPtL.onChainViewContractAddress,
-  txRollupAddress: process.env['TEZOS_LIMANET_TXROLLUP_ADDRESS'] || knownContractsPtLimaPtL.txRollupAddress,
-  protocol: Protocols.PtLimaPtL,
-  signerConfig: {
-    type: SignerType.EPHEMERAL_KEY as SignerType.EPHEMERAL_KEY,
-    keyUrl: 'http://key-gen-1.i.tez.ie:3000/limanet',
-    requestHeaders: { Authorization: 'Bearer taquito-example' },
-  },
-};
+const kathmandunetEphemeral: Config =
+  defaultConfig({
+    networkName: 'KATHMANDUNET',
+    protocol: Protocols.PtKathman,
+    defaultRpc: 'http://key-gen-1.i.tez.ie:3000/kathmandunet',
+    knownContracts: knownContractsPtKathman,
+    signerConfig: defaultEphemeralConfig('http://ecad-kathmandunet-archive.i.tez.ie:8732')
+  });
 
+const kathmandunetSecretKey: Config =
+  { ...kathmandunetEphemeral, ...{ signerConfig: defaultSecretKey } };
 
-const mondaynetEphemeral = {
-  rpc: process.env['TEZOS_RPC_MONDAYNET'] || 'http://mondaynet.ecadinfra.com:8732',
-  pollingIntervalMilliseconds: process.env['POLLING_INTERVAL_MILLISECONDS'] || undefined,
-  rpcCacheMilliseconds: process.env['RPC_CACHE_MILLISECONDS'] || '1000',
-  knownBaker: 'tz1ck3EJwzFpbLVmXVuEn5Ptwzc6Aj14mHSH',
-  knownContract: process.env['TEZOS_MONDAYNET_CONTRACT_ADDRESS'] || knownContractsProtoALph.contract,
-  knownBigMapContract: process.env['TEZOS_MONDAYNET_BIGMAPCONTRACT_ADDRESS'] || knownContractsProtoALph.bigMapContract,
-  knownTzip1216Contract: process.env['TEZOS_MONDAYNET_TZIP1216CONTRACT_ADDRESS'] || knownContractsProtoALph.tzip12BigMapOffChainContract,
-  knownSaplingContract: process.env['TEZOS_MONDAYNET_SAPLINGCONTRACT_ADDRESS'] || knownContractsProtoALph.saplingContract,
-  txRollupWithdrawContract: process.env['TX_ROLLUP_WITHDRAW_CONTRACT'] || '',
-  txRollupDepositContract: process.env['TX_ROLLUP_DEPOSIT_CONTRACT'] || '',
-  knownViewContract: process.env['TEZOS_MONDAYNET_ON_CHAIN_VIEW_CONTRACT'] || knownContractsProtoALph.onChainViewContractAddress,
-  txRollupAddress: process.env['TEZOS_MONDAYNET_TXROLLUP_ADDRESS'] || knownContractsProtoALph.txRollupAddress,
-  protocol: Protocols.ProtoALpha,
-  signerConfig: {
-    type: SignerType.EPHEMERAL_KEY as SignerType.EPHEMERAL_KEY,
-    keyUrl: 'http://key-gen-1.i.tez.ie:3010/mondaynet',
-    requestHeaders: { Authorization: 'Bearer taquito-example' },
-  },
-};
+const limanetEphemeral: Config =
+  defaultConfig({
+    networkName: 'LIMANET',
+    protocol: Protocols.PtJakart2,
+    defaultRpc: 'http://ecad-limanet-full:8732',
+    knownContracts: knownContractsPtLimaPtL,
+    signerConfig: defaultEphemeralConfig('http://key-gen-1.i.tez.ie:3000/limanet')
+  });
 
-const kathmandunetSecretKey = {
-  rpc: process.env['TEZOS_RPC_KATHMANDUNET'] || 'http://ecad-kathmandunet-archive.i.tez.ie:8732',
-  pollingIntervalMilliseconds: process.env['POLLING_INTERVAL_MILLISECONDS'] || undefined,
-  rpcCacheMilliseconds: process.env['RPC_CACHE_MILLISECONDS'] || '1000',
-  knownBaker: process.env['TEZOS_BAKER'] || 'tz1cjyja1TU6fiyiFav3mFAdnDsCReJ12hPD',
-  knownContract: process.env['TEZOS_KATHMANDUNET_CONTRACT_ADDRESS'] || knownContractsPtKathman.contract,
-  knownBigMapContract: process.env['TEZOS_KATHMANDUNET_BIGMAPCONTRACT_ADDRESS'] || knownContractsPtKathman.bigMapContract,
-  knownTzip1216Contract: process.env['TEZOS_KATHMANDUNET_TZIP1216CONTRACT_ADDRESS'] || knownContractsPtKathman.tzip12BigMapOffChainContract,
-  knownSaplingContract: process.env['TEZOS_KATHMANDUNET_SAPLINGCONTRACT_ADDRESS'] || knownContractsPtKathman.saplingContract,
-  txRollupWithdrawContract: process.env['TEZOS_KATHMANDUNET_TX_ROLLUP_WITHDRAW_CONTRACT'] || '',
-  txRollupDepositContract: process.env['TEZOS_KATHMANDUNET_TX_ROLLUP_DEPOSIT_CONTRACT'] || '',
-  knownViewContract: process.env['TEZOS_KATHMANDUNET_ON_CHAIN_VIEW_CONTRACT'] || knownContractsPtKathman.onChainViewContractAddress,
-  txRollupAddress: process.env['TEZOS_KATHMANDUNET_TXROLLUP_ADDRESS'] || knownContractsPtKathman.txRollupAddress,
-  protocol: Protocols.PtKathman,
-  signerConfig: defaultSecretKey,
-};
+const limanetSecretKey: Config =
+  { ...limanetEphemeral, ...{ signerConfig: defaultSecretKey } };
 
-const limanetSecretKey = {
-  rpc: process.env['TEZOS_RPC_LIMANET'] || 'http://ecad-limanet-full:8732',
-  pollingIntervalMilliseconds: process.env['POLLING_INTERVAL_MILLISECONDS'] || undefined,
-  rpcCacheMilliseconds: process.env['RPC_CACHE_MILLISECONDS'] || '1000',
-  knownBaker: process.env['TEZOS_BAKER'] || 'tz1cjyja1TU6fiyiFav3mFAdnDsCReJ12hPD',
-  knownContract: process.env['TEZOS_LIMANET_CONTRACT_ADDRESS'] || knownContractsPtLimaPtL.contract,
-  knownBigMapContract: process.env['TEZOS_LIMANET_BIGMAPCONTRACT_ADDRESS'] || knownContractsPtLimaPtL.bigMapContract,
-  knownTzip1216Contract: process.env['TEZOS_LIMANET_TZIP1216CONTRACT_ADDRESS'] || knownContractsPtLimaPtL.tzip12BigMapOffChainContract,
-  knownSaplingContract: process.env['TEZOS_LIMANET_SAPLINGCONTRACT_ADDRESS'] || knownContractsPtLimaPtL.saplingContract,
-  txRollupWithdrawContract: process.env['TEZOS_LIMANET_TX_ROLLUP_WITHDRAW_CONTRACT'] || '',
-  txRollupDepositContract: process.env['TEZOS_LIMANET_TX_ROLLUP_DEPOSIT_CONTRACT'] || '',
-  knownViewContract: process.env['TEZOS_LIMANET_ON_CHAIN_VIEW_CONTRACT'] || knownContractsPtLimaPtL.onChainViewContractAddress,
-  txRollupAddress: process.env['TEZOS_LIMANET_TXROLLUP_ADDRESS'] || knownContractsPtLimaPtL.txRollupAddress,
-  protocol: Protocols.PtLimaPtL,
-  signerConfig: defaultSecretKey
-};
+const mondaynetEphemeral: Config =
+  defaultConfig({
+    networkName: 'MONDAYNET',
+    protocol: Protocols.ProtoALpha,
+    defaultRpc: 'http://mondaynet.ecadinfra.com:8732',
+    knownContracts: knownContractsProtoALph,
+    signerConfig: defaultEphemeralConfig('http://key-gen-1.i.tez.ie:3010/mondaynet')
+  });
 
-const mondaynetSecretKey = {
-  rpc: process.env['TEZOS_RPC_MONDAYNET'] || 'http://mondaynet.ecadinfra.com:8732',
-  pollingIntervalMilliseconds: process.env['POLLING_INTERVAL_MILLISECONDS'] || undefined,
-  rpcCacheMilliseconds: process.env['RPC_CACHE_MILLISECONDS'] || '1000',
-  knownBaker: process.env['TEZOS_MONDAYNET_BAKER'] || 'tz1ck3EJwzFpbLVmXVuEn5Ptwzc6Aj14mHSH',
-  knownContract: process.env['TEZOS_MONDAYNET_CONTRACT_ADDRESS'] || knownContractsProtoALph.contract,
-  knownBigMapContract: process.env['TEZOS_MONDAYNET_BIGMAPCONTRACT_ADDRESS'] || knownContractsProtoALph.bigMapContract,
-  knownTzip1216Contract: process.env['TEZOS_MONDAYNET_TZIP1216CONTRACT_ADDRESS'] || knownContractsProtoALph.tzip12BigMapOffChainContract,
-  knownSaplingContract: process.env['TEZOS_MONDAYNET_SAPLINGCONTRACT_ADDRESS'] || knownContractsProtoALph.saplingContract,
-  txRollupWithdrawContract: process.env['TX_ROLLUP_WITHDRAW_CONTRACT'] || '',
-  txRollupDepositContract: process.env['TX_ROLLUP_DEPOSIT_CONTRACT'] || '',
-  knownViewContract: process.env['TEZOS_MONDAYNET_ON_CHAIN_VIEW_CONTRACT'] || knownContractsProtoALph.onChainViewContractAddress,
-  txRollupAddress: process.env['TEZOS_MONDAYNET_TXROLLUP_ADDRESS'] || knownContractsProtoALph.txRollupAddress,
-  protocol: Protocols.ProtoALpha,
-  signerConfig: defaultSecretKey
-};
+const mondaynetSecretKey: Config =
+  { ...mondaynetEphemeral, ...{ signerConfig: defaultSecretKey } };
+
 
 const providers: Config[] = [];
 
